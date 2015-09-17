@@ -1,0 +1,102 @@
+---
+title: "Stat627-01"
+author: "Zaiwei Liu"
+date: "September 15, 2015"
+output: html_document
+---
+
+
+**1. Bring Rectangular Data In**
+
+```{r}
+Data1 <- read.delim(file = "http://www.stat.ubc.ca/~jenny/notOcto/STAT545A/examples/gapminder/data/gapminderDataFiveYear.txt")
+```
+
+The two loading functions have different results. Using `read.relim()`, everything goes smoothly and the data can be brought in as a data.frame. However, using `read.table()`, there's an error reading the data without specifying arguments.
+
+
+To find out what the problem is, let's inspect the structure of the object as well as the original dataset. Several outputs are given as below.
+
+```{r}
+head(Data1, 3)
+tail(Data1, 3)
+summary(Data1)
+str(Data1)
+```
+
+We can see that the dataset consists of 1704 rows and 6 columns of data points, and actually there were quite a few problems of the default `read.table()` function. Firstly, in the original dataset, the first row of data is the column names, so we need to set the argument `header=T` to assign the names to each column. Secondly, the separation in the txt file is marked as "tab" instead of "space", hence we have to set the argument `sep="\t"` for it. Thirdly, since some countries have symbol "'" in their names, the data will be somehow abridged if we treat them as quotes. Thus, the last argument set is `quote="\"` so that the data can be read in completely. 
+
+After these settings, we can see that the objects read into the workspace become the same for the two functions.   
+
+
+```{r}
+Data2 <- read.table(file = "http://www.stat.ubc.ca/~jenny/notOcto/STAT545A/examples/gapminder/data/gapminderDataFiveYear.txt", sep="\t", header=T, quote = "\"")
+str(Data2)
+```
+
+**2. Smell Test the Data**  
+
+According to the output of `str()`, the object is organized in R as a `data.frame`. To further determine its `mode` and `class`, the functions `mode()` and `class()` are applied as following.
+
+```{r}
+mode(Data1)
+class(Data1)
+```
+
+As we can see, the `mode` of the object is `list` while its `class` is `data.frame`. Actually, here the data frames are stored in memory as `list` but are wrapped into `data.frame` objects. 
+
+Recall the outputs of `str()`, we can tell that there are 1704 observations (rows) of 6 variables in the object, and for sure it's not the only way to get these facts.  
+
+For instance, using `dim()`, we can get a integer vector of length 2 representing the dimension of the object, and the functions `nrow()` and `ncol` return the numbers of rows and columns respectively. Otherwise, the `length()` function can also be applied to vectors, i.e. a row or a column in a data frame.  
+
+These functions are pretty useful in different sorts of circumstances. For example, for 2-dimentional data frames, we may call `Data[nrow(Data),]` or `Data[,ncol(Data)]` to get the last row or column of the dataset. 
+
+For this Gapminder problem, there are 6 variables in the object, which are `country`, `year`, `pop`, `continent`, `lifeExp`, and `gdpPercap`. Specifically, the variables `country` and `continent` are factors; the variable `year` is an integer; while the variables `pop`, `lifeExp` and `gdpPercap` are numericals.  
+
+**3. Explore Individual Variables**
+
+```{r}
+unique(Data1$country)
+unique(Data1$continent)
+unique(Data1$year)
+```
+
+For the two categorical variables `country` and `continent`, we can see that totally 142 countries among 5 continents are included in the data frame. We may also find that for each country, the data are collected twice in a decade from 1952 to 2007.
+
+In the next part, we are going to investigate into the three quantitative variables: population, life expectation, and GDP per capital.  
+
+```{r}
+summary(Data1$pop)
+sd(Data1$pop)
+summary(Data1$lifeExp)
+sd(Data1$lifeExp)
+summary(Data1$gdpPercap)
+sd(Data1$gdpPercap)
+```
+
+Coming first are some simple descriptive statistics for the three variales. As we can see, a five-number summary as well as the typical mean are given for each variable. For `pop` and `gdpPercap`, the median and mean are quite different, which implies the existence of skewness. The ranges of the three variables are surprisingly large: it's shocking to see that in some places in this sad world people die averagely when they are at my age (23). Besides calculating the ranges, standard deviations are also calculated for the three variables; we can say that the spreads of the three variables are pretty large.  
+
+To take a look at the shape of distributions, plots are made as below:  and
+
+```{r}
+require(ggplot2)
+ggplot(Data1, aes(pop)) + geom_density(kernerl="gausian") + ggtitle("Distribution of Population")
+ggplot(Data1, aes(lifeExp)) + geom_density(kernerl="gausian") + ggtitle("Distribution of Life Expectation")
+ggplot(Data1, aes(gdpPercap)) + geom_density(kernerl="gausian") + ggtitle("Distribution of GDP Per Capital")
+```
+
+It can be seen that both the distributions of `pop` and `gdpPercap` are severely right-skewed, and the varible `lifeExp` has a bimodal distribution.  
+
+After having done those works, it remains interesting for me to make a contrast between the chronical development of my homeland China and the rests of the world. Simple line charts are plotted below, where the red line represents China and blue the rest of the world.  
+
+```{r}
+Data1.China <- Data1[which(Data1$country=="China"),]
+Data1.World <- Data1[-which(Data1$country=="China"),]
+lifeExp.world <- tapply(Data1.World$lifeExp, Data1.World$year, mean)
+gdpPercap.world <- tapply(Data1.World$gdpPercap, Data1.World$year, mean)
+Data1.China <- data.frame(Data1.China, lifeExp.world, gdpPercap.world)
+ggplot(Data1.China) + geom_line(aes(year,lifeExp), col=2) + geom_line(aes(year,lifeExp.world), col=4) + ggtitle("Life Expectation of China and the Rest of the World")
+ggplot(Data1.China) + geom_line(aes(year,gdpPercap), col=2) + geom_line(aes(year,gdpPercap.world), col=4) + ggtitle("GDP per Capital of China and the Rest of the World")
+```
+
+We can see that over the past half-century, the living condition in China was siginificantly improved, for the fact that the expected life span for Chinese has been grown above the average level since 1970s. However, the GDP per capital for China is still far below the average level of the world, which implies the fact that China is still a developing country and has a long way to go.  
