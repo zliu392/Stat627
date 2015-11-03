@@ -1,0 +1,144 @@
+---
+title: "Stat627-02"
+author: "Zaiwei Liu"
+date: "Oct 6, 2015"
+output: html_document
+---
+
+# HW03
+
+Read in the gapminder data with `read.delim()` and library necessary packages.  
+
+```{r, warning=FALSE, message=FALSE}
+Data <- read.delim(file = "http://www.stat.ubc.ca/~jenny/notOcto/STAT545A/examples/gapminder/data/gapminderDataFiveYear.txt")
+require(plyr, quietly=T)
+require(dplyr, quietly=T)
+require(ggplot2, quietly=T)
+```
+
+## Task 1 
+
+**Get the maximum and minimum of GDP per capita for all continents.** The codes and outputs are as below:  
+
+```{r}
+Data <- tbl_df(Data)  # converts data to tbl class
+GDP_Min <- Data %>% group_by(continent) %>% summarise(min(gdpPercap))
+GDP_Max <- Data %>% group_by(continent) %>% summarise(max(gdpPercap))
+colnames(GDP_Min) <- c("Continent", "Minimum of GDP Per Capita")
+colnames(GDP_Max) <- c("Continent", "Maximum of GDP Per Capita")
+GDP <- bind_cols(GDP_Min, GDP_Max[,2])
+knitr::kable(GDP, caption="Min and Max GDP Per Capita")
+```
+
+The table lists the minimum and maximum GDP per capita for countries in different continents. We can see that the global all-time minimum is around $241 in Africa, and the global all-time maximum is around $113523 in Asia.  
+Since the table itself is not representative enough, we're gonna make a violin plot to show the distributions of per-capita GDP among continents. 
+
+```{r}
+ggplot(Data, aes(continent,gdpPercap)) + geom_violin(aes(color=continent)) + xlab("Continent") + ylab("GDP Per Capita") + ggtitle("Violin Plot for GDP Per Capita in Different Continents")
+```
+
+Now we can find the both Africa and Asia are actually quite under-developed and have a mass of countries with low GDP per capita. However, it seems that in Asia there are some outliers which makes a long tail. Let's try to figure it out.  
+
+```{r}
+Data[which(Data$gdpPercap==max(Data$gdpPercap)),]
+Data[which(Data$gdpPercap==min(Data$gdpPercap)),]
+```
+
+We can see that the country which had a tremendous amount of GDP per capita was 1957's Kuwait. At that time, the population of Kuwait was low and the export of crude oil make the people their a lot profits. By the way, the worldwide lowest-ever data point is 2002's Democratic Republic of Congo, and that was around the time of the Second Congo War.  
+
+## Task 2
+
+**Compute a weighted mean of life expectancy for different years.** The codes and outputs are as below. The weight we used here was the population of each country. 
+
+```{r}
+LifeExp_Weighted <- Data %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+colnames(LifeExp_Weighted) <- c("Year", "LifeExp")
+knitr::kable(LifeExp_Weighted, caption="Weighted Mean of Life Expectancy for Different Years")
+```
+
+It's easy to see that the (weighted) mean of life expectancy of the world is significantlly increasing in the past half century. The living condition of human beings has been generally improved.  
+
+```{r}
+ggplot(LifeExp_Weighted, aes(Year, LifeExp)) + geom_point() + geom_smooth(method=loess) + ylab("Weighted Mean of Life Expectancy") + xlab("Year") + ggtitle("Weighted Mean of Life Expectancy for Different Years")
+```
+
+To further investigate the data, we made a scatter plot with a local regression line depicting the trend. We can see that the growth rate of life expectancy has been slowing down since around 1980s. 
+
+We also find that the local regression didn't fit the data of 1962 very well. Unnaturally, world's mean life expectancy hardly went up from 1957 to 1962. As far as I know, there was a catastrophic famine in China at the beginning of 1960s which caused tens of millions of death. At the same time, the World War II might have some chorinical impact on the lifespan of those generations, like some Japanese people died ealier than they should because of exposing to nuclear radiation during war time. Anyway, the historical reason here might be complicated.
+
+## Task 3
+
+**Here we are going to answer the question that how life expectancy changes over time on different continents.** 
+
+Since It's hard to group by multiple columns in `dplyr`, we'll extract the data of each continent as subsets and apply `group_by` on each subset. The means calculated here are still weighted by the populations. Here at first, I had a problem using `left_join`, so I switched to another method to manipulate the data. The problem-related codes are quoted in the chunk below as comments. I've googled around but wasn't able to fix it. Was there a bug or something?  
+
+```{r}
+# L <- filter(Data, continent=="Africa") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+# L <- left_join(L, (filter(Data, continent=="Americas") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))), by="year")
+# L <- left_join(L, (filter(Data, continent=="Asia") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))), by="year")
+# L <- left_join(L, (filter(Data, continent=="Europe") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))), by="year")
+# L <- left_join(L, (filter(Data, continent=="Oceania") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))), by="year")
+# colnames(L) <- c("Year", "Africa", "Americas", "Asia", "Europe", "Oceania")
+
+A <- filter(Data, continent=="Africa") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+B <- filter(Data, continent=="Americas") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+C <- filter(Data, continent=="Asia") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+D <- filter(Data, continent=="Europe") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+E <- filter(Data, continent=="Oceania") %>% group_by(year) %>% summarise(weighted.mean(lifeExp, pop))
+Life1 <- bind_cols(A,B[,2],C[,2],D[,2],E[,2])
+colnames(Life1) <- c("Year", "Africa", "Americas", "Asia", "Europe", "Oceania")
+Life2 <- bind_rows(A,B,C,D,E)
+Life2 <- bind_cols(Life2, as.data.frame(c(rep("Africa",12), rep("Americas",12), rep("Asia",12), rep("Europe",12), rep("Oceania",12))))
+colnames(Life2) <- c("Year", "LifeExp", "Continent")
+knitr::kable(Life1,caption="Life Expectancy Over Time on Different Continents")
+```
+
+Here the table becomes somewhat redundant and it would be much better to represent the information by plots. 
+
+```{r}
+ggplot(Life2, aes(Year,LifeExp,color=Continent))+geom_line() + ggtitle("Life Expectancy Over Time on Different Continents") + ylab("Weighted Mean of Life Expectancy")
+```
+
+In the plot, it's intuitive to see from the lines that generally Oceania has the highest life expectancy, then Europe, then Americas, then finally Asia and Africa. Detailedly, there're only two countries, New Zealand and Australia in Oceania, so that it doesn't count that much; and actually North America should have a life expectancy as high as Oceania, but here North and South America were put together so the average might be dragged down by some developing countries in South America. As for the two major developing area Asia and Africa, we can see that Asia has a good tendency in life expectancy, but Africa is still quite struggling.  
+
+# HW04
+
+In this part, we're going to fit a OLS linear regression on life expectancy on year for each country, and then calculate its MSE using leave-one-out cross validation. It's surpring to see that such an MSE could be, in some sense, a good measure on the steadiness of the development, since a rather large MSE may suggest the existence of outliers or severe non-linearity.  
+
+```{r, warnings=FALSE}
+require(boot, quietly=T)
+LOOCV <- function(dat, offset=1952) {
+  Model <- glm(lifeExp ~ I(year-1952), family=gaussian, dat)
+  MSE <- cv.glm(dat, Model)$delta[1]
+  }
+MSE <- ddply(Data, ~ country, LOOCV)
+names(MSE)[2] <- "mse"
+MSE <- left_join(MSE, unique(Data[,c(1,4)]), by="country")
+MSE_sort <- MSE[order(MSE[,2]),]
+knitr::kable(MSE_sort, caption="MSE for Each Country")
+```
+
+The full-length table is given as above. Although it's a bit too long, it contains the full information of the rankings of countries and would thus be useful. We can see that most countries on the top are developed countries in Europe and Americas, while countries at the bottom are mostly from Asia and Africa.  
+
+To make a summation, let's take a look at the mean MSE for each continent. 
+
+```{r}
+MSE_mean <- MSE %>% group_by(continent) %>% summarise(mean(mse))
+knitr::kable(MSE_mean, caption="Mean MSE for Each Continent")
+```
+
+We can see that Africa is the most unsteady continent, while Americas, Europe and Oceania are rather steady, and Asia is indeed in between. 
+
+Finally, two ways of plotting are applied to represent the information mentioned above.  
+
+```{r}
+ggplot(MSE_sort, aes(1:142, mse, color=continent)) + geom_point(size=4, shape=3) + xlab("Countries") + ylab("MSE") + ggtitle("MSE for Each Country, Plot 1")
+```
+
+The first plot depicts the sorted MSE, thus we can tell that the MSE's boost up for those dozens of countries at the bottom. This suggests the existence of a heavy tail in the distribution. 
+
+```{r}
+ggplot(MSE, aes(1:142, mse, color=continent)) + geom_point(size=3, alpha=0.85) + xlab("Countries") + ylab("MSE") + ggtitle("MSE for Each Country, Plot 2")
+```
+
+Since the points are overlapped in the first plot, another scatter plot was made to make it more readable. The countries are in alphabetic order on the x axis. Now in this new plot, it's easier to see that some certain African countries floating in the midair and most European and American countries standing on the ground. It's beautiful and interesting, isn't?
