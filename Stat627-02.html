@@ -81,9 +81,9 @@ require(dplyr, quietly=T)</code></pre>
 ##     arrange, count, desc, failwith, id, mutate, rename, summarise,
 ##     summarize
 ## 
-## The following object is masked from 'package:stats':
+## The following objects are masked from 'package:stats':
 ## 
-##     filter
+##     filter, lag
 ## 
 ## The following objects are masked from 'package:base':
 ## 
@@ -143,13 +143,15 @@ knitr::kable(GDP, caption=&quot;Min and Max GDP Per Capita&quot;)</code></pre>
 <pre class="r"><code>Data[which(Data$gdpPercap==max(Data$gdpPercap)),]</code></pre>
 <pre><code>## Source: local data frame [1 x 6]
 ## 
-##   country year    pop continent lifeExp gdpPercap
-## 1  Kuwait 1957 212846      Asia  58.033  113523.1</code></pre>
+##   country  year    pop continent lifeExp gdpPercap
+##    (fctr) (int)  (dbl)    (fctr)   (dbl)     (dbl)
+## 1  Kuwait  1957 212846      Asia  58.033  113523.1</code></pre>
 <pre class="r"><code>Data[which(Data$gdpPercap==min(Data$gdpPercap)),]</code></pre>
 <pre><code>## Source: local data frame [1 x 6]
 ## 
-##            country year      pop continent lifeExp gdpPercap
-## 1 Congo, Dem. Rep. 2002 55379852    Africa  44.966  241.1659</code></pre>
+##            country  year      pop continent lifeExp gdpPercap
+##             (fctr) (int)    (dbl)    (fctr)   (dbl)     (dbl)
+## 1 Congo, Dem. Rep.  2002 55379852    Africa  44.966  241.1659</code></pre>
 <p>We can see that the country which had a tremendous amount of GDP per capita was 1957’s Kuwait. At that time, the population of Kuwait was low and the export of crude oil make the people their a lot profits. By the way, the worldwide lowest-ever data point is 2002’s Democratic Republic of Congo, and that was around the time of the Second Congo War.</p>
 </div>
 <div id="task-2" class="section level2">
@@ -365,9 +367,8 @@ knitr::kable(Life1,caption=&quot;Life Expectancy Over Time on Different Continen
 <div id="hw04" class="section level1">
 <h1>HW04</h1>
 <p>In this part, we’re going to fit a OLS linear regression on life expectancy on year for each country, and then calculate its MSE using leave-one-out cross validation. It’s surpring to see that such an MSE could be, in some sense, a good measure on the steadiness of the development, since a rather large MSE may suggest the existence of outliers or severe non-linearity.</p>
-<pre class="r"><code>require(boot, quietly=T)</code></pre>
-<pre><code>## Warning: package 'boot' was built under R version 3.1.3</code></pre>
-<pre class="r"><code>LOOCV &lt;- function(dat, offset=1952) {
+<pre class="r"><code>require(boot, quietly=T)
+LOOCV &lt;- function(dat, offset=1952) {
   Model &lt;- glm(lifeExp ~ I(year-1952), family=gaussian, dat)
   MSE &lt;- cv.glm(dat, Model)$delta[1]
   }
