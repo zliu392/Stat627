@@ -191,14 +191,14 @@ MSE4 %>% str()
 
 
 ```{r figures, fig.height=5, fig.width=14}
-A <- MSE1 %>% ggplot() + 
-  geom_jitter(aes(x = continent, y = log(mse), color=continent), position = position_jitter(width = .1)) + 
-  stat_summary(aes(continent, log(mse)), fun.y="median", geom="point") + 
+A <- MSE1 %>% ggplot(aes(x = continent, y = log(mse), group = 1)) + 
+  geom_jitter(aes(color=continent), position = position_jitter(width = .1)) + 
+  stat_summary(fun.y="median", geom="line") + 
   ggtitle("Plot for Type I")
-B <- MSE4 %>% ggplot() + 
-  geom_jitter(aes(x = continent, y = log(mse),  color=continent), position = position_jitter(width = .1)) + 
-  stat_summary(aes(continent, log(mse)), fun.y="median", geom="point") +
-  ggtitle("Plot for Type I, II & III")
+B <- MSE4 %>% ggplot(aes(x = continent, y = log(mse), group = 1)) + 
+  geom_jitter(aes(color=continent), position = position_jitter(width = .1)) + 
+  stat_summary(fun.y="median", geom="line") + 
+  ggtitle("Plot for Type I")
 multiplot(A, B, cols=2)
 ```
 
