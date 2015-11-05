@@ -5,7 +5,7 @@ date: "Nov 1, 2015"
 output: html_document
 ---
   
-# 0 Read in the data and library necessary packages.  
+# 0 Prepare the Data and Packages  
   
 ```{r Read in Data, warning=FALSE, message=FALSE}
 Data <- read.delim(file = "http://www.stat.ubc.ca/~jenny/notOcto/STAT545A/examples/gapminder/data/gapminderDataFiveYear.txt")
@@ -63,12 +63,12 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 # 1 Factor Management
 
-## a) Drop Oceania.
+## (a) Drop Oceania.
 For the fact that there're only two countries in Oceania, we'd like to drop it from our analysis here. (Sorry for Australia and New Zealand but this is what is required in this part.)
 
 Concrete information on the data structure will be provided to learn the effect of the functions.
 
-### (i) Before removing the rows
+### i. Before removing the rows
 
 ```{r Droplevels1}
 Data <- Data %>% tbl_df()  # converts data to tbl class
@@ -77,7 +77,7 @@ str(Data)
 
 We can see that before removing the rows, there're totally `r nrow(Data)` rows of observation in the data set, while the factor `country` has `r length(levels(Data$country))` levels and `continent` has `r length(levels(Data$continent))` levels. 
 
-### (ii) After removing the rows
+### ii. After removing the rows
 
 ```{r Droplevels2}
 Data1 <- Data %>% filter(!(continent %in% "Oceania"))
@@ -86,7 +86,7 @@ str(Data1)
 
 After removing the rows from Oceania, the number of rows now becomes `r nrow(Data1)`, while the levels of the two factors are still `r length(levels(Data1$country))` and `r length(levels(Data1$continent))` separately.  
 
-### (iii) After Dropping Levels
+### iii. After Dropping Levels
 
 ```{r Droplevels 3}
 Data2 <- Data1 %>% droplevels()
@@ -95,9 +95,9 @@ str(Data2)
 
 After applying `droplevels()` function to the data, then the numbers of levels of the affected factors change. Now, the level of `country` turns to be `r length(levels(Data2$country))` and the level of `continent` turns to be `r length(levels(Data2$continent))`.
 
-### (iv) Figures
+### iv. Figures
 
-Now, we're going to use figures with legends to show the effects of filtering and dropping levels of the data. 
+Now, we're going to use figures with legends to show the effects of filtering and dropping levels of the data. The first one is the original violin plot we did last time, without any reordering, transformation and summaries. The second one, as a comparison, is a rather well-designed violin plot, with Oceania dropped, log-transformed, continent reordered, and the median GDP per capita is also plotted as a point in each case.  
 
 ```{r Plots, fig.height=5, fig.width=14}
 Reorder <- function(dat, fun) {
@@ -107,20 +107,21 @@ Reorder <- function(dat, fun) {
 }
 Data3 <- Reorder(Data2, "median")
 
-A <- ggplot(Data) + geom_violin(aes(continent, log(gdpPercap), color=continent)) +
-  xlab("Continent") + ylab("Log-transformed GDP Per Capita") + 
-  ggtitle("Violin Plot for GDP Per Capita in Different Continents") + 
-  stat_summary(aes(continent, log(gdpPercap)), fun.y="median", geom="point")
+A <- ggplot(Data) + geom_violin(aes(continent, gdpPercap, color=continent)) +
+  xlab("Continent") + ylab("GDP Per Capita") + 
+  ggtitle("GDP Per Capita in Different Continents")
 B <- ggplot(Data3) + geom_violin(aes(continent,log(gdpPercap),color=continent)) +
   xlab("Continent") + ylab("Log-transformed GDP Per Capita") + 
-  ggtitle("Violin Plot for GDP Per Capita in Different Continents") + 
+  ggtitle("Log-transformed GDP Per Capita in Different Continents") + 
   stat_summary(aes(continent, log(gdpPercap)), fun.y="median", geom="point")
 multiplot(A, B, cols=2)
 ```
 
-## b) Reorder Factors 
+Apparently, the second plot is more natural and informative compared to the first one.
 
-Last time, we've fitted linear regressions and got the LOOCV MSE for each country. For this part, we're going to reorder the factor `continent`, based on the median MSE in each continent. As suggested on JB's website, there're 4 ways to reorder the factor, and we're going to integrate them into a single principled funciton.  
+## (b) Reorder Factors 
+
+Last time, we've fitted linear regressions and got the LOOCV MSE for each country. For this part, we're going to reorder the factor `continent`, based on the median MSE in each continent. As suggested on JB's website, there're four ways to arrange/reorder the factor, and we're going to integrate them into a single principled funciton.  
 
 ```{r MSE Calulation Function, echo=FALSE, results="hide"}
 require(boot, quietly=T)
@@ -149,38 +150,76 @@ MSE3 <- arrange_order(MSE, type=3)
 MSE4 <- arrange_order(MSE, type=4)
 ```
 
-### (i) 
+### i. Post_arrange
+
+The first type, simply arranging the data, will just mutate the order of the rows, but won't change the order of the factor `continent`. Such an arrangement will have no effect on the figure. 
 
 ```{r Demonstration1, results="hold"}
 MSE1 %>% head()
 MSE1 %>% str()
-MSE1 %>% ggplot() + geom_jitter(aes(x = continent, y = log(mse),  color=continent), position = position_jitter(width = .1)) 
 ```
 
-### (ii)
+### ii. Post_reorder
+
+The second type, simply reordering the factor, will not change the order of the rows, but the order of the factor `continent` will be changed. Such a reordering will change the plot.
 
 ```{r Demonstration2, results="hold"}
 MSE2 %>% head()
 MSE2 %>% str()
 ```
 
-### (iii)
+### iii. Post_both
+
+The third type firstly reorders the factor then arranges the data based on the order of the factor. In this way, the rows of data are organized in chunks of continents, where countries in `Oceania` are on placed on the top since they have the least median MSE. The plot will be the same as the second type.  
 
 ```{r Demonstration3, results="hold"}
 MSE3 %>% head()
 MSE3 %>% str()
 ```
 
-### (iv)
+### iv. Swap out the argument for `arrange()`
+
+The last type also reorders the factor first, but then arranges the data based on the mse of each country. In this way, the data are organized in ascending order of MSE. Personally, this is the one I preferred to use, and the plot here will also be the same as the second and third type.  
 
 ```{r Demonstration4, results="hold"}
 MSE4 %>% head()
 MSE4 %>% str()
-MSE4 %>% ggplot() + geom_jitter(aes(x = continent, y = log(mse),  color=continent), position = position_jitter(width = .1)) 
 ```
 
-# 2 Replot
+### v. Figures
 
-```{r Reorder Country, fig.height=14, fig.width=14}
-ggplot(MSE4) + geom_point(aes(x = log(mse), y = reorder(country, log(mse)), color=continent)) + facet_grid(.~continent)
+
+
+```{r figures, fig.height=5, fig.width=14}
+A <- MSE1 %>% ggplot() + 
+  geom_jitter(aes(x = continent, y = log(mse), color=continent), position = position_jitter(width = .1)) + 
+  stat_summary(aes(continent, log(mse)), fun.y="median", geom="point") + 
+  ggtitle("Plot for Type I")
+B <- MSE4 %>% ggplot() + 
+  geom_jitter(aes(x = continent, y = log(mse),  color=continent), position = position_jitter(width = .1)) + 
+  stat_summary(aes(continent, log(mse)), fun.y="median", geom="point") +
+  ggtitle("Plot for Type I, II & III")
+multiplot(A, B, cols=2)
 ```
+
+# 2 Visualization design
+
+In this part, we remake the MSE plot we did in the last assignment, with a brandnew design of visualization. Now, the data are log-transformed, reordered, and represented in facets. The function here is a generalization of the situation, by passing the arguments to `ggplot`.   
+
+```{r Reorder Country, fig.height=15, fig.width=12}
+MSE_plot <- function (dat, ord_fac, quant, group) {
+  X <- colnames(dat)
+  X[which(X==ord_fac)] <- "ord_fac"
+  X[which(X==quant)] <- "quant"
+  X[which(X==group)] <- "group"
+  colnames(dat) <- X
+  PLOT <- ggplot(dat) + facet_grid(.~group) + 
+    geom_point(aes(x = log(quant), y = reorder(ord_fac, log(quant)), color=group))
+  PLOT
+}
+MSE_plot(MSE4, ord_fac = "country", quant = "mse", group = "continent") + 
+  xlab("Log-transformed MSE") + ylab("Countries") +
+  ggtitle("Log-transformed MSE for Countries") + theme(legend.position="none")
+```
+
+
