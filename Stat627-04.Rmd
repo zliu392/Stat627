@@ -1,0 +1,18 @@
+---
+title: "Stat627-04"
+author: "Zaiwei Liu"
+date: "Nov 30, 2015"
+output: html_document
+---
+
+
+```{r Read in Data and Packages}
+suppressPackageStartupMessages({
+  library(plyr)
+  library(dplyr)
+  library(ggplot2)
+})
+tmp <- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear_dirty.txt')
+```
+
+
