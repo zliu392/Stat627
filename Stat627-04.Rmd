@@ -5,6 +5,9 @@ date: "Nov 30, 2015"
 output: html_document
 ---
 
+## 0. Loading dirty Gapminder
+
+First, let's read in the data with `strip.white = FALSE` and `strip.white = TRUE` and take a look at their differences. 
 
 ```{r Read in Data and Packages}
 suppressPackageStartupMessages({
@@ -12,7 +15,73 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(ggplot2)
 })
-tmp <- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear_dirty.txt')
+Dirty1 <- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear_dirty.txt', strip.white = FALSE)
+Dirty2 <- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear_dirty.txt', strip.white = TRUE)
+str(Dirty1)
+str(Dirty2)
 ```
 
+
+
+## 1. Splitting and Merging
+```{r Splitting}
+### Split the factor column into two character columns and return as a new data.frame
+SPLIT <- function (x) {
+  # split
+  tmp <- x %>% as.character() %>% strsplit(split='_') %>% 
+    unlist() %>% matrix(ncol = 2, byrow = T) %>% data.frame()
+  # assign the colnames
+  colnames(tmp) <- c('continent','country')
+  # transform the factor into char
+  tmp$continent <- tmp$continent %>% as.character()
+  tmp$country <- tmp$country %>% as.character()
+  return(tmp)
+}
+
+Dirty <- SPLIT(Dirty2$region)
+head(Dirty)
+```
+
+## 2. Missing Values
+```{r Missing values}
+### Check in a character vector if there's missing value in it, and return the index
+Index_Missing <- function(x) {
+  Index <- NULL
+  for (i in 1:length(x)) {
+    # we assume the missing values here are coded as either "" or NA
+    if (x[i] == '' | is.na(x[i])) Index <- c(Index,i)
+  }
+  return(Index)
+}
+
+(Index <- union(Index_Missing(Dirty$continent), Index_Missing(Dirty$country)))
+Dirty[Index,]
+
+### Fill the missing continent with the information of the other rows  
+Fill_Continent <- function(x = Index) {
+  Dat <- Dirty
+  # get the name of all the countries with missing continent 
+  Names <- unique(Dat[x, ]$country)
+  for (i in 1:length(Names)) {
+    # for a certain country, find the rows with the same country name
+    tmp <- grep(pattern = Names[i], x = Dat$country, fixed = TRUE)
+    # get the row number of the missing value (for this country)
+    k <- intersect(Index, which(Dat$country == Names[i]))
+    # replace the missing continent with the most frequent alternative
+    Dat$continent[k] <- Dat$continent[tmp] %>% table() %>% which.max() %>% names()
+  }
+  return(Dat)
+}
+
+Dirty <- Fill_Continent(Index)
+Dirty[Index,]
+```
+
+
+## 3. Inconsistent capitalization and spelling
+```{r}
+# Clean <- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear.txt')
+# str(Clean)
+# identical(Dirty, Clean)
+```
 
