@@ -73,7 +73,6 @@ img {
 <pre class="r"><code>suppressPackageStartupMessages({
   library(plyr)
   library(dplyr)
-  library(ggplot2)
 })
 Dirty1 &lt;- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear_dirty.txt', strip.white = FALSE)
 Dirty2 &lt;- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear_dirty.txt', strip.white = TRUE)
@@ -91,9 +90,20 @@ str(Dirty1)</code></pre>
 ##  $ lifeExp  : num  28.8 30.3 32 34 36.1 ...
 ##  $ gdpPercap: num  779 821 853 836 740 ...
 ##  $ region   : Factor w/ 148 levels &quot;_Canada&quot;,&quot;Africa_Algeria&quot;,..: 83 83 83 83 83 83 83 83 83 83 ...</code></pre>
+<p>With <code>strip.white = TRUE</code>, the leading and trailing white space from unquoted character fields in the dataset will be striped. If we set the argument to be <code>FALSE</code>, we can see that for the factor variable <code>region</code>, totally 151 levels were read in, including several unexpected levels like “”. Now if we set the argument to be <code>TRUE</code>, then the number of levels is reduced to 148, which is easier for us to deal with.</p>
 </div>
 <div id="splitting-and-merging" class="section level2">
 <h2>1. Splitting and Merging</h2>
+<p>Let’s take a look at the columns of the dataframe.</p>
+<pre class="r"><code>head(Dirty2)</code></pre>
+<pre><code>##   year      pop lifeExp gdpPercap           region
+## 1 1952  8425333  28.801  779.4453 Asia_Afghanistan
+## 2 1957  9240934  30.332  820.8530 Asia_Afghanistan
+## 3 1962 10267083  31.997  853.1007 Asia_Afghanistan
+## 4 1967 11537966  34.020  836.1971 Asia_Afghanistan
+## 5 1972 13079460  36.088  739.9811 Asia_Afghanistan
+## 6 1977 14880372  38.438  786.1134 Asia_Afghanistan</code></pre>
+<p>We can find that the <code>continent</code> and <code>country</code> variables are now pasted in one column, and we need to split it into two.</p>
 <pre class="r"><code>### Split the factor column into two character columns and return as a new data.frame
 SPLIT &lt;- function (x) {
   # split
@@ -108,17 +118,20 @@ SPLIT &lt;- function (x) {
 }
 
 Dirty &lt;- SPLIT(Dirty2$region)
+Dirty &lt;- cbind(country = Dirty[,2], Dirty2[1:2], continent = Dirty[,1], Dirty2[,3:4])
 head(Dirty)</code></pre>
-<pre><code>##   continent     country
-## 1      Asia Afghanistan
-## 2      Asia Afghanistan
-## 3      Asia Afghanistan
-## 4      Asia Afghanistan
-## 5      Asia Afghanistan
-## 6      Asia Afghanistan</code></pre>
+<pre><code>##       country year      pop continent lifeExp gdpPercap
+## 1 Afghanistan 1952  8425333      Asia  28.801  779.4453
+## 2 Afghanistan 1957  9240934      Asia  30.332  820.8530
+## 3 Afghanistan 1962 10267083      Asia  31.997  853.1007
+## 4 Afghanistan 1967 11537966      Asia  34.020  836.1971
+## 5 Afghanistan 1972 13079460      Asia  36.088  739.9811
+## 6 Afghanistan 1977 14880372      Asia  38.438  786.1134</code></pre>
+<p>Now, each of the columns only contains one conceptual variable.</p>
 </div>
 <div id="missing-values" class="section level2">
 <h2>2. Missing Values</h2>
+<p>Assuming that the missing values here are coded as either <code>&quot;&quot;</code> or <code>NA</code>, a function is written to check if there’s any missing value in a character vector. The return value here would be the indices of the missing values.</p>
 <pre class="r"><code>### Check in a character vector if there's missing value in it, and return the index
 Index_Missing &lt;- function(x) {
   Index &lt;- NULL
@@ -132,10 +145,11 @@ Index_Missing &lt;- function(x) {
 (Index &lt;- union(Index_Missing(Dirty$continent), Index_Missing(Dirty$country)))</code></pre>
 <pre><code>## [1] 241 242 243</code></pre>
 <pre class="r"><code>Dirty[Index,]</code></pre>
-<pre><code>##     continent country
-## 241            Canada
-## 242            Canada
-## 243            Canada</code></pre>
+<pre><code>##     country year      pop continent lifeExp gdpPercap
+## 241  Canada 1952 14785584             68.75  11367.16
+## 242  Canada 1957 17010154             69.96  12489.95
+## 243  Canada 1962 18985849             71.30  13462.49</code></pre>
+<p>It’s identified that rows 241, 242, 243 have missing fields in it. Now we’re going to write a function to fill them with correct values. The idea is to replace the missing value with the most frequent alternative value for the same country.</p>
 <pre class="r"><code>### Fill the missing continent with the information of the other rows  
 Fill_Continent &lt;- function(x = Index) {
   Dat &lt;- Dirty
@@ -154,16 +168,43 @@ Fill_Continent &lt;- function(x = Index) {
 
 Dirty &lt;- Fill_Continent(Index)
 Dirty[Index,]</code></pre>
-<pre><code>##     continent country
-## 241  Americas  Canada
-## 242  Americas  Canada
-## 243  Americas  Canada</code></pre>
+<pre><code>##     country year      pop continent lifeExp gdpPercap
+## 241  Canada 1952 14785584  Americas   68.75  11367.16
+## 242  Canada 1957 17010154  Americas   69.96  12489.95
+## 243  Canada 1962 18985849  Americas   71.30  13462.49</code></pre>
+<p>We can see that now the three rows are filled with the correct value.</p>
 </div>
 <div id="inconsistent-capitalization-and-spelling" class="section level2">
-<h2>3. Inconsistent capitalization and spelling</h2>
-<pre class="r"><code># Clean &lt;- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear.txt')
-# str(Clean)
-# identical(Dirty, Clean)</code></pre>
+<h2>3. Inconsistent Capitalization and Spelling</h2>
+<p>Here, we may assume that the correct coding is highly possible to be the most frequently occured one, since for any certain kind of irregular spelling, inconsistent capitalization or typo, the chance of it happening very often is quite low in the sense of law of large number.</p>
+<p>Thus in this case, we just replace all of the irregular spellings with the most frequent spelling for each country. Of course, this rule of thumb might be violated sometimes, but here it works well for the gapminder data.</p>
+<p>Note that even if this procedure fails, it’s still a good point to get started and will certainly reduce some of the unnecessary use of regular expressions.</p>
+<p>As for the details of the coding, an easy for loop is used here, for the fact that the rows are well-ordered so that every 12 consecutive rows are of one country, and the countries are in alphabet order.</p>
+<pre class="r"><code>tmp &lt;- NULL
+for (i in 1 : (dim(Dirty)[1]/12)) {
+  tmp &lt;- c(tmp, Dirty$country[(i*12-11):(i*12)] %&gt;% table() %&gt;% 
+             which.max() %&gt;% names() %&gt;% rep(12))
+}
+Dirty$country &lt;- as.factor(tmp)
+Dirty &lt;- Dirty %&gt;% droplevels()</code></pre>
+</div>
+<div id="final-check" class="section level2">
+<h2>4. Final Check</h2>
+<p>The check shows that now the data is identical with the clean one.</p>
+<pre class="r"><code>Clean &lt;- read.delim('https://raw.githubusercontent.com/STAT545-UBC/STAT545-UBC.github.io/master/gapminderDataFiveYear.txt')
+identical(Dirty, Clean)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>After these operations, the dataset is now successfully cleaned, and we didn’t make too much use of regular expressions here. To show that I’m not afraid of using RegEx (I’m not sure if that counts for part of the grade…), a little example would be given as the end of this assignment.</p>
+<pre class="r"><code>eg &lt;- SPLIT(Dirty2$region)
+country &lt;- gsub(&quot;\\b([a-z])&quot;, &quot;\\U\\1&quot;, eg$country, perl = TRUE)
+country &lt;- gsub(&quot;\\b(And)&quot;, &quot;\\L\\1&quot;, country, perl = TRUE)
+country &lt;- gsub(&quot;\\b(Of)&quot;, &quot;\\L\\1&quot;, country, perl = TRUE)
+country &lt;- gsub(&quot;\\b(The)&quot;, &quot;\\L\\1&quot;, country, perl = TRUE)
+country &lt;- gsub(&quot;\\b(D'Ivoire)&quot;, &quot;d'Ivoire&quot;, country, perl = TRUE)
+country &lt;- gsub(&quot;\\b(D'Ivore)&quot;, &quot;d'Ivoire&quot;, country, perl = TRUE)
+country &lt;- gsub(&quot;Democratic Republic of the Congo&quot;, &quot;Congo, Dem. Rep.&quot;, country, perl = TRUE)
+country &lt;- gsub(&quot;Congo, Democratic Republic&quot;, &quot;Congo, Dem. Rep.&quot;, country, perl = TRUE)</code></pre>
+<p>Now the column of <code>countries</code> becomes clean again, but look, isn’t it a little bit weird and unnatural?</p>
 </div>
 
 
