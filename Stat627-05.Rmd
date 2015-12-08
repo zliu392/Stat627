@@ -1,0 +1,104 @@
+---
+title: "Stat627-05"
+author: "Zaiwei Liu"
+date: "Dec 7, 2015"
+output: html_document
+---
+
+
+## 1 Download Gapminder Data
+```{r}
+require(downloader, quietly = T)
+downloader::download("https://raw.githubusercontent.com/jennybc/gapminder/master/inst/gapminder.tsv", "gapminder.tsv")
+```
+
+
+## 2 Write Analysed Data to File
+```{r, warning=FALSE, message=FALSE}
+# library the packages and read in the data
+require(plyr, quietly=T)
+require(dplyr, quietly=T)
+require(boot, quietly=T)
+require(ggplot2, quietly=T)
+Data <- read.delim("gapminder.tsv")
+
+# drop the "Oceania"
+Data1 <- Data %>% tbl_df() 
+Data2 <- Data1 %>% filter(!(continent %in% "Oceania")) %>% droplevels()
+Reorder <- function(dat, fun) {
+  dat_new <- dat
+  dat_new$continent <- dat %>% with(reorder(continent, gdpPercap, fun))
+  dat_new
+}
+Data3 <- Reorder(Data2, "median")
+
+
+# fit linear regressions on life expectancy and calculate the MSE for each country
+LOOCV <- function(dat, offset=1952) {
+  Model <- glm(lifeExp ~ I(year-1952), family=gaussian, dat)
+  MSE <- cv.glm(dat, Model)$delta[1]
+}
+MSE <- ddply(Data3, ~ country, LOOCV)
+names(MSE)[2] <- "mse"
+Data4 <- left_join(MSE, Data3, by="country")
+Data4 <- tbl_df(Data4)
+write.table(Data4, "gapminder_new.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
+```
+
+
+## 3 Save Two Figures to one PDF
+```{r}
+Dat <- read.delim("gapminder_new.tsv")
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  if (numPlots==1) {
+    print(plots[[1]])
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+# reorder the factor "continent" based on the MSE in each continent
+arrange_order <- function(dat, type) {
+  dat1 <- dat
+  if (type==1) dat1 <- dat %>% arrange(mse)
+  else if (type==2) dat1 <- dat %>% mutate(continent = reorder(continent, mse, median))
+  else if (type==3) dat1 <- dat %>% mutate(continent = reorder(continent, mse, median)) %>% arrange(continent)
+  else dat1 <- dat %>% mutate(continent = reorder(continent, mse, median)) %>% arrange(mse)
+  dat1
+}
+Dat <- arrange_order(Dat, type=4)
+
+Plot_a <- ggplot(Dat) + geom_violin(aes(continent,log(gdpPercap),color=continent)) +
+  xlab("Continent") + ylab("Log-transformed GDP Per Capita") + 
+  ggtitle("Log-transformed GDP Per Capita in Different Continents") + 
+  stat_summary(aes(continent, log(gdpPercap)), fun.y="median", geom="point")
+Plot_b <- Dat[,c(1,2,3)] %>% unique() %>% ggplot(aes(x = continent, y = log(mse), group = 1)) + 
+  geom_jitter(aes(color=continent), position = position_jitter(width = .1)) + 
+  stat_summary(fun.y="median", geom="line") + 
+  ggtitle("Plot for Type I")
+pdf("gapminder_ggplots.pdf")
+multiplot(Plot_a, Plot_b)
+graphics.off()
+```
