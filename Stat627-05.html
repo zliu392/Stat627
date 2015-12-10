@@ -74,6 +74,7 @@ downloader::download(&quot;https://raw.githubusercontent.com/jennybc/gapminder/m
 </div>
 <div id="write-analysed-data-to-file" class="section level2">
 <h2>2 Write Analysed Data to File</h2>
+<p>In this part, we firstly drop the observations for oceania, then fit linear regressions on life expectancy for each country and calculate the MSEs. The outputs will be written to a .tsv file.</p>
 <pre class="r"><code># library the packages and read in the data
 require(plyr, quietly=T)
 require(dplyr, quietly=T)
@@ -105,6 +106,8 @@ write.table(Data4, &quot;gapminder_new.tsv&quot;, quote = FALSE, sep = &quot;\t&
 </div>
 <div id="save-two-figures-to-one-pdf" class="section level2">
 <h2>3 Save Two Figures to one PDF</h2>
+<p>It seems that we’re required in this assignment to save the figures into “one file”. Since <code>ggsave</code> cannot deal with multiple plots, we decide to make use of the <code>multiplot</code> function from <a href="http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/">Cookbook for R</a>. In the output, two plots will be merged into one single PDF.</p>
+<p>Note that before making plots, the level of the factor variable <code>continent</code> is reordered according to the calculated MSE.</p>
 <pre class="r"><code>Dat &lt;- read.delim(&quot;gapminder_new.tsv&quot;)
 
 multiplot &lt;- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
